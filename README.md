@@ -1,2 +1,3 @@
-# Lab-Eng-Softawre
-Laboratórios de Engenharia de Software - 2026
+# Lab-Eng-Software
+
+Laboratório de Engenharia de Software - 2026
