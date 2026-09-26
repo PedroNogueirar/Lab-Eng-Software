@@ -193,18 +193,23 @@ class PDFVectorStore:
 
     def _normalize(self, text):
 
-        # remove unicode invisível
+        # remove unicode invisível / normaliza formas de compatibilidade
         text = unicodedata.normalize("NFKD", text)
-    
+
         # remove form feed, tabs, etc
         text = text.replace("\x0c", " ")
-    
+
         # remove hifenização quebrada de PDF
         text = re.sub(r"-\s*\n\s*", "", text)
-    
+
         # remove múltiplos espaços
         text = re.sub(r"\s+", " ", text)
-    
+
+        # recompõe acentos (NFKD decompõe "é" em "e" + "´"; recompomos pra NFC
+        # para manter consistência com strings digitadas normalmente e evitar
+        # que o hash de dedup trate formas visualmente iguais como diferentes)
+        text = unicodedata.normalize("NFC", text)
+
         return text.strip().lower()
 
 
