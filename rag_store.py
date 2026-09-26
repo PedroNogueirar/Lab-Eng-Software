@@ -191,7 +191,8 @@ class PDFVectorStore:
         log.info(f"✂️ chunks gerados: {len(chunks)}")
         return chunks
 
-    def _normalize(self, text):
+    @staticmethod
+    def _normalize(text):
 
         # remove unicode invisível / normaliza formas de compatibilidade
         text = unicodedata.normalize("NFKD", text)
