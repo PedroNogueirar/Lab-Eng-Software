@@ -1,6 +1,6 @@
 import unittest
 # Importe a sua classe (supondo que o código acima esteja num arquivo chamado rag_store.py)
-# from rag_store import PDFVectorStore 
+from rag_store import PDFVectorStore 
 
 class MockPDFVectorStore:
     """Classe temporária ou simulada caso queira testar a lógica pura 
