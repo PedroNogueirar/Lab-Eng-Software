@@ -1,0 +1,11 @@
+numpy
+scikit-learn
+transformers
+torch
+sentence-transformers
+langchain-core
+langchain-text-splitters
+langchain-huggingface
+langchain-chroma
+langchain-community
+chromadb
