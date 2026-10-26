@@ -1,0 +1,37 @@
+# TCChat / data_master — dependências do projeto
+# Instalar com: pip install -r requirements.txt
+
+# --- API de LLM e embeddings (OpenAI) ---
+openai>=1.0,<3.0
+langchain-openai
+python-dotenv
+tiktoken
+
+# --- RAG / Vector store ---
+chromadb
+langchain-core
+langchain-community
+langchain-chroma
+langchain-text-splitters
+
+# --- Modelos locais (reranker, continua rodando localmente) ---
+torch
+torchvision
+torchaudio
+transformers
+
+# --- Backend web (login, sessão, histórico, upload de documentos) ---
+flask
+werkzeug
+pypdf
+python-docx
+
+# --- Utilitários ---
+numpy
+pandas
+scikit-learn
+tqdm
+
+# --- Usadas por rag_store.py / vector_store_test.py (embeddings locais) ---
+sentence-transformers
+langchain-huggingface
