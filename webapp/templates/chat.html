@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TCChat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="pagina-chat">
+  <div class="app">
+
+    <aside class="lateral" id="lateral" aria-label="Menu">
+      <div class="lateral-topo">
+        <span class="logo-circulo" aria-hidden="true"><svg class="ico"><use href="/static/icons.svg#sun"/></svg></span>
+        <span class="marca">TCChat</span>
+      </div>
+
+      <nav class="lateral-menu">
+        <button type="button" class="item-menu" id="menu-nova">
+          <svg class="ico"><use href="/static/icons.svg#nova"/></svg><span>Nova conversa</span>
+        </button>
+        <button type="button" class="item-menu" id="menu-base">
+          <svg class="ico"><use href="/static/icons.svg#arquivo"/></svg><span>Base de conhecimento</span>
+        </button>
+        <button type="button" class="item-menu" id="menu-estrutura">
+          <svg class="ico"><use href="/static/icons.svg#estrutura"/></svg><span>Estrutura do trabalho</span>
+        </button>
+        <button type="button" class="item-menu" id="menu-progresso">
+          <svg class="ico"><use href="/static/icons.svg#progresso"/></svg><span>Meu progresso</span>
+        </button>
+      </nav>
+
+      <p class="rotulo-lista">Recentes</p>
+      <ul class="recentes" id="recentes"></ul>
+
+      <div class="lateral-rodape">
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <span class="dados-usuario">
+          <span class="nome-usuario" id="nome-usuario"></span>
+          <span class="email-usuario" id="email-usuario"></span>
+        </span>
+        <button type="button" class="btn-icone" id="btn-sair" aria-label="Sair da conta">
+          <svg class="ico"><use href="/static/icons.svg#sair"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <div class="veu" id="veu"></div>
+
+    <div class="principal">
+      <header class="topo">
+        <button type="button" class="btn-icone btn-menu" id="btn-menu" aria-label="Abrir menu" aria-expanded="false" aria-controls="lateral">
+          <svg class="ico"><use href="/static/icons.svg#panel"/></svg>
+        </button>
+        <span class="topo-titulo">TCChat</span>
+        <button type="button" class="btn-icone" id="btn-nova-topo" aria-label="Nova conversa">
+          <svg class="ico"><use href="/static/icons.svg#nova"/></svg>
+        </button>
+      </header>
+
+      <main class="conversa" id="conversa">
+        <div class="rolagem" id="rolagem">
+          <section class="vazio" id="vazio">
+            <div class="logo-tile" aria-hidden="true"><svg class="ico"><use href="/static/icons.svg#sun"/></svg></div>
+            <h1 id="saudacao">Olá.</h1>
+            <p class="saudacao-2">Por onde começamos?</p>
+            <div class="sugestoes" id="sugestoes"></div>
+          </section>
+
+          <div class="mensagens" id="mensagens" role="log" aria-live="polite" aria-label="Conversa" hidden></div>
+        </div>
+
+        <div class="compositor">
+          <form class="caixa" id="form-msg">
+            <div class="caixa-topo">
+              <label class="sr-only" for="seletor-modo">Tipo de ajuda</label>
+              <select class="pilula" id="seletor-modo">
+                <option value="tema">Definir tema</option>
+                <option value="revisao">Revisar texto</option>
+              </select>
+              <label class="sr-only" for="seletor-secao">Seção do trecho</label>
+              <select class="pilula" id="seletor-secao" hidden>
+                <option value="introducao">Introdução</option>
+                <option value="metodologia">Metodologia</option>
+                <option value="resultados">Resultados</option>
+              </select>
+            </div>
+            <label class="sr-only" for="campo">Sua mensagem</label>
+            <textarea id="campo" rows="2"></textarea>
+            <div class="caixa-rodape">
+              <button type="button" class="base-info" id="btn-base" aria-label="Abrir a base de conhecimento">
+                <svg class="ico"><use href="/static/icons.svg#clipe"/></svg>
+                <span id="contagem-docs">0 documentos na base</span>
+              </button>
+              <button class="btn-enviar" type="submit" id="btn-enviar" aria-label="Enviar" disabled>
+                <svg class="ico"><use href="/static/icons.svg#seta"/></svg>
+              </button>
+            </div>
+          </form>
+          <p class="aviso">O TCChat pode cometer erros. Confira informações importantes.</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-base" hidden>
+    <div class="modal-fundo" id="modal-fundo"></div>
+    <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+      <button type="button" class="btn-icone modal-fechar" id="modal-fechar" aria-label="Fechar">
+        <svg class="ico"><use href="/static/icons.svg#fechar"/></svg>
+      </button>
+      <h2 id="modal-titulo">Base de conhecimento</h2>
+      <p class="modal-sub">Documentos que alimentam as respostas do assistente.</p>
+
+      <label class="zona-envio" id="zona-envio">
+        <input type="file" id="arquivo" accept=".pdf,.docx,.txt,.md" multiple hidden>
+        <svg class="ico"><use href="/static/icons.svg#nuvem"/></svg>
+        <strong>Arraste arquivos ou clique para enviar</strong>
+        <span>PDF, DOCX, TXT, MD — até 20 MB</span>
+      </label>
+
+      <p class="erro" id="erro-base" role="alert"></p>
+      <ul class="docs" id="lista-docs"></ul>
+      <p class="docs-vazio" id="docs-vazio">Nenhum documento ainda.</p>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/chat.js"></script>
+</body>
+</html>
