@@ -1,0 +1,10 @@
+# Dependências extras, só para quando o backend roda em produção (Linux).
+#
+# gunicorn não funciona no Windows (usa recursos exclusivos de sistemas
+# Unix), por isso ficou separado do requirements.txt principal — assim o
+# ambiente de desenvolvimento no Windows continua instalando normalmente.
+#
+# Na instância EC2 (ou no Dockerfile), instale os dois arquivos:
+#   pip install -r requirements.txt -r deploy/requirements-prod.txt
+
+gunicorn
