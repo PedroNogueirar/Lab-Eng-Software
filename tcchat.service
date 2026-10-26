@@ -1,0 +1,29 @@
+# Unidade systemd para rodar o TCChat como serviço na instância EC2 (fica de
+# pé sozinho, reinicia se cair, sobe de novo quando a instância reiniciar).
+#
+# INSTALAÇÃO (na instância, via SSH):
+#   1. Ajuste User / WorkingDirectory / ExecStart abaixo para os caminhos reais.
+#   2. sudo cp deploy/tcchat.service /etc/systemd/system/tcchat.service
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable --now tcchat
+#   5. sudo systemctl status tcchat        # conferir se subiu
+#   6. journalctl -u tcchat -f             # acompanhar logs em tempo real
+#
+# O OPENAI_API_KEY NÃO precisa ser repetido aqui: o próprio código já lê o
+# .env da raiz do projeto (via python-dotenv) quando sobe.
+
+[Unit]
+Description=TCChat (backend Flask + gunicorn)
+After=network.target
+
+[Service]
+# Troque "ec2-user" e os caminhos pelo usuário/pasta reais da sua instância
+# (ec2-user é o padrão em Amazon Linux; em Ubuntu costuma ser "ubuntu").
+User=ec2-user
+WorkingDirectory=/home/ec2-user/Lab_engenharia_Software
+ExecStart=/home/ec2-user/Lab_engenharia_Software/venv/bin/gunicorn --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:5000 wsgi:app
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
