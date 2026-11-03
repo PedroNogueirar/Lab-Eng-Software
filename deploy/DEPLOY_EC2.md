@@ -73,11 +73,17 @@ cd ~/Lab_engenharia_Software
 nano .env
 ```
 
-Confirme que tem uma linha assim (sem isso o backend não sobe):
+Confirme que tem estas configurações (sem a chave o backend não sobe):
 
 ```
 OPENAI_API_KEY="sua-chave-aqui"
+TCCHAT_ADMIN_EMAILS="coordenacao@instituicao.edu.br"
 ```
+
+Separe vários e-mails administrativos por vírgula. Cadastros com esses
+endereços terão acesso à gestão dos documentos da base; os demais usuários
+terão papel de aluno. Como o cadastro ainda não verifica a propriedade do
+e-mail, use somente endereços administrativos controlados pela equipe.
 
 ## 6. Primeira execução manual (antes de virar serviço)
 

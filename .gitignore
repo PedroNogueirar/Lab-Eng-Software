@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+webapp_data/
+llama/RAG/db/
+llama/memory_support_db/
+llama/logs_llama/
+llama/RAG/docs_uploader/uploads_originais/
+webapp/llama/RAG/docs_uploader/uploads_originais/

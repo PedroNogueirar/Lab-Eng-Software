@@ -5,7 +5,7 @@ import uuid
 from flask import Blueprint, request, jsonify, g
 
 from ..db import obter_conexao, agora
-from ..auth import requer_autenticacao
+from ..auth import requer_autenticacao, requer_administrador
 from ..chat_service import obter_gerador
 
 docs_bp = Blueprint("docs", __name__)
@@ -13,7 +13,9 @@ docs_bp = Blueprint("docs", __name__)
 # Guarda uma cópia do arquivo original enviado (fora da pasta já usada pelo
 # RAG em llama/RAG/docs_uploader/documents_txt, que é a base original do
 # projeto e não deve ser misturada com uploads feitos pelo front-end).
-_PROJETO_RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_PROJETO_RAIZ = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 DOCS_DIR = os.path.join(_PROJETO_RAIZ, "llama", "RAG", "docs_uploader", "uploads_originais")
 
 EXTENSOES_SUPORTADAS = {".txt", ".md", ".pdf", ".docx"}
@@ -41,6 +43,7 @@ def _extrair_texto(caminho, extensao):
 
 @docs_bp.get("/documentos")
 @requer_autenticacao
+@requer_administrador
 def listar_documentos():
     conn = obter_conexao()
     try:
@@ -54,6 +57,7 @@ def listar_documentos():
 
 @docs_bp.post("/documentos")
 @requer_autenticacao
+@requer_administrador
 def enviar_documento():
     arquivo = request.files.get("arquivo")
     if arquivo is None or not arquivo.filename:
@@ -98,6 +102,7 @@ def enviar_documento():
 
 @docs_bp.delete("/documentos/<doc_id>")
 @requer_autenticacao
+@requer_administrador
 def remover_documento(doc_id):
     conn = obter_conexao()
     try:

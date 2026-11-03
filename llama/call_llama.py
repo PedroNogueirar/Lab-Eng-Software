@@ -16,6 +16,7 @@ from llama.memory_support.memory_support import Memory_support
 from llama.RAG.BuildVectorStore import PDFVectorStore
 from llama.RAG.rank_context import RankContext
 from llama.perplexity import CalculatePerplexity
+from llama.prompts import INSTRUCOES_BASE
 
 class CallLlama:
     def __init__(self,
@@ -64,8 +65,12 @@ class CallLlama:
         )
 
     def _init_rag(self):
-        self.rag_support = PDFVectorStore(persist_dir='llama/RAG/db')
-        self.db_rag = self.rag_support._load_db()
+        rag_dir = os.path.join(self.base_dir, "RAG")
+        self.rag_support = PDFVectorStore(
+            docs_path=os.path.join(rag_dir, "docs_uploader", "documents_txt"),
+            persist_dir=os.path.join(rag_dir, "db"),
+        )
+        self.db_rag = self.rag_support.initialize()
 
     def _init_perplexity(self):
         # Não depende mais de modelo/tokenizer locais: a API da OpenAI já
@@ -114,14 +119,18 @@ class CallLlama:
     # -------------------------------------------------------------------------
     #   MONTA PROMPT (mensagens no formato da Chat Completions API)
     # -------------------------------------------------------------------------
-    def build_prompt(self, user: str):
+    def build_prompt(self, user: str, user_id=None):
 
-        memory_block = self.memory_support.mount_prompt_memory(user, k=3)
+        memory_block = self.memory_support.mount_prompt_memory(
+            user, k=3, user_id=user_id
+        )
         rag_docs = self._extract_info_chunks(user, k=20)
     
         if rag_docs:
             rag_block = "\n\n".join(
-                f"[FONTE {d.id}] {d.page_content}"
+                f"[FONTE: {d.metadata.get('source') or 'Documento da base'} | "
+                f"TRECHO: {d.metadata.get('chunk_id') or d.id}]\n"
+                f"{d.page_content}"
                 for d in rag_docs
             )
         else:
@@ -129,19 +138,7 @@ class CallLlama:
 
         print(f"RAG_BLOCK: {rag_block}")
 
-        system_prompt = f"""Você é um especialista em GRC.
-
-Construa uma resposta completa e explicativa usando todas as informações relevantes disponíveis.
-
-Responda utilizando as informações do <CONTEXT_RAG> como base factual.
-Use também o <CONTEXT_MEMORY> se complementar a resposta.
-
-Não invente fatos que não estejam no contexto.
-
-Se múltiplos documentos se complementarem, combine-os.
-
-Se não houver informação suficiente:
-Informação não encontrada no contexto.
+        system_prompt = f"""{INSTRUCOES_BASE}
 
 <CONTEXT_MEMORY>
 {memory_block if memory_block.strip() else "[Nenhuma memória relevante encontrada]"}
@@ -149,8 +146,7 @@ Informação não encontrada no contexto.
 
 <CONTEXT_RAG>
 {rag_block if rag_block.strip() else "[Nenhum documento relevante foi encontrado.]"}
-</CONTEXT_RAG>
-"""
+</CONTEXT_RAG>"""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -163,12 +159,20 @@ Informação não encontrada no contexto.
     # -------------------------------------------------------------------------
     #   INVOCAÇÃO PRINCIPAL (chamada à API da OpenAI)
     # -------------------------------------------------------------------------
-    def invoke(self, user: str, temp=0.3, max_tokens=512, top_p=0.7, top_k=40):
+    def invoke(
+        self,
+        user: str,
+        temp=0.3,
+        max_tokens=512,
+        top_p=0.7,
+        top_k=40,
+        user_id=None,
+    ):
         # Nota: `top_k` não existe na Chat Completions API da OpenAI; o
         # parâmetro foi mantido apenas para não quebrar chamadas existentes
         # que ainda o informam, mas é ignorado.
 
-        messages = self.build_prompt(user)
+        messages = self.build_prompt(user, user_id=user_id)
 
         # =============================
         # GERAR RESPOSTA (API da OpenAI)
@@ -191,7 +195,9 @@ Informação não encontrada no contexto.
 
         # ---- MEMÓRIA ----
         try:
-            self.memory_support.append_on_memory_database(user, answer)
+            self.memory_support.append_on_memory_database(
+                user, answer, user_id=user_id
+            )
         except Exception as e:
             print(f"⚠️ Erro ao salvar memória: {e}")
 

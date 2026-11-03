@@ -38,7 +38,7 @@ def requer_autenticacao(f):
         conn = obter_conexao()
         linha = conn.execute(
             """
-            SELECT u.id AS id, u.nome AS nome, u.email AS email
+            SELECT u.id AS id, u.nome AS nome, u.email AS email, u.papel AS papel
             FROM tokens t
             JOIN usuarios u ON u.id = t.usuario_id
             WHERE t.token = ?
@@ -53,8 +53,21 @@ def requer_autenticacao(f):
         g.usuario_id = linha["id"]
         g.usuario_nome = linha["nome"]
         g.usuario_email = linha["email"]
+        g.usuario_papel = linha["papel"]
         g.token = token
 
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+def requer_administrador(f):
+    """Exige que o token autenticado pertença a um administrador."""
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if getattr(g, "usuario_papel", None) != "admin":
+            return jsonify({"erro": "Acesso restrito a administradores."}), 403
         return f(*args, **kwargs)
 
     return wrapper

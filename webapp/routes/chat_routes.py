@@ -150,7 +150,12 @@ def chat():
 
         gerador = obter_gerador()
         try:
-            resposta = gerador.responder(mensagem, modo=modo, secao=secao)
+            resposta = gerador.responder(
+                mensagem,
+                modo=modo,
+                secao=secao,
+                user_id=g.usuario_id,
+            )
         except Exception as e:
             # Imprime o traceback completo no terminal (facilita achar a causa raiz);
             # o front-end só recebe a mensagem curta, não a pilha inteira.

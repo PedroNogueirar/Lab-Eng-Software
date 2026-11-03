@@ -1,27 +1,20 @@
 # Backend web do TCChat (login, sessão, histórico, documentos)
 
-## O que falta para rodar
+## Configuração inicial
 
-O backend (Flask) já foi criado inteiro, mas **os 7 arquivos de front-end que
-você colou numa mensagem anterior não puderam ser recuperados** depois que a
-conversa precisou ser resumida por limite de contexto — o texto colado não
-fica salvo em lugar nenhum além da conversa em si. Então preciso que você
-reenvie estes arquivos (cole de novo, ou anexe) para eu salvar nos lugares
-certos:
+O front-end está em `webapp/templates/` e `webapp/static/`. Para rodar, instale
+as dependências, configure o `.env` e inicie o Flask conforme o README.
 
-| Arquivo             | Onde vai                        |
-|---------------------|----------------------------------|
-| `login.html`        | `webapp/templates/login.html`   |
-| `chat.html`         | `webapp/templates/chat.html`    |
-| `style.css`         | `webapp/static/css/style.css`   |
-| `icons.svg`         | `webapp/static/icons.svg`       |
-| `api.js`            | `webapp/static/js/api.js`       |
-| `login.js`          | `webapp/static/js/login.js`     |
-| `chat.js`           | `webapp/static/js/chat.js`      |
+Defina `TCCHAT_ADMIN_EMAILS` no `.env` com os e-mails que terão acesso à gestão
+da base, separados por vírgula. Essas contas recebem o papel de administrador;
+cadastros fora da lista são alunos. Reinicie o servidor depois de alterar essa
+configuração. Somente administradores podem listar, enviar e remover documentos.
+As rotas da API também validam o papel, portanto ocultar os controles na interface
+não é a única proteção.
 
-Assim que eu receber o conteúdo de novo, salvo tudo nesses caminhos e o
-backend fica 100% funcional (as rotas já foram escritas combinando
-exatamente com o contrato de API que `api.js`/`chat.js` esperam).
+As respostas do chat incluem as fontes recuperadas pelo RAG quando houver
+trechos relevantes. A memória semântica é filtrada pelo identificador do usuário,
+separando o contexto de alunos diferentes.
 
 ## Testando localmente (Windows)
 
@@ -41,7 +34,9 @@ Antes de pensar em EC2, vale rodar tudo na sua própria máquina primeiro.
    É pesado (puxa `torch`/`transformers`), pode demorar alguns minutos na
    primeira vez.
 
-3. **Confirme o `.env`** — já deve ter a sua `OPENAI_API_KEY` preenchida.
+3. **Confirme o `.env`** — preencha `OPENAI_API_KEY` e configure os e-mails
+   autorizados em `TCCHAT_ADMIN_EMAILS`. Para testar a área administrativa,
+   cadastre/entre com um dos e-mails listados.
 
 4. **Suba o servidor**:
 
@@ -72,7 +67,8 @@ Antes de pensar em EC2, vale rodar tudo na sua própria máquina primeiro.
    local é carregado na memória e o índice do RAG é construído do zero
    (chamando a API de embeddings da OpenAI — custo bem pequeno, mas real).
 
-8. **Teste a base de conhecimento** — abra "Base de conhecimento" no menu,
+8. **Teste a base de conhecimento** — entre com uma conta configurada como
+   administrador e abra "Base de conhecimento" no menu,
    suba um `.txt`/`.pdf`/`.docx`/`.md` pequeno, confira se aparece na lista,
    depois remova e confira se some.
 
@@ -142,10 +138,9 @@ Acesse `http://localhost:5000/` (tela de login).
 
 ## Pontos que decidi sem te perguntar (me avise se quiser mudar)
 
-1. **Sem papel de Administrador** por enquanto — qualquer usuário logado
-   pode enviar/remover documentos da base de conhecimento. Se vocês
-   querem distinguir aluno/administrador, dá pra adicionar uma coluna
-   `tipo` em `usuarios` e proteger as rotas de `/documentos`.
+1. **Papel de administrador configurado por e-mail** — `TCCHAT_ADMIN_EMAILS`
+   define as contas administradoras. O cadastro não aceita papel enviado pelo
+   navegador; todas as demais contas são alunos.
 2. **Uma conversa "ativa" por usuário** (a mais recente) — `/historico`
    sempre devolve a conversa em aberto, e `/conversa/nova` começa outra.
    Não há ainda uma tela de "lista de conversas antigas para escolher";

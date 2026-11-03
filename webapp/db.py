@@ -3,11 +3,26 @@ import os
 import sqlite3
 from datetime import datetime
 
+from dotenv import load_dotenv
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # raiz do projeto (Lab_engenharia_Software)
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 # Pode ser sobrescrito pela variável de ambiente TCCHAT_DB_PATH (ex.: para
 # apontar o banco pra outro disco em produção). Por padrão fica dentro do
 # próprio projeto, em webapp_data/.
 DB_PATH = os.environ.get("TCCHAT_DB_PATH") or os.path.join(BASE_DIR, "webapp_data", "tcchat.db")
+
+
+def emails_administradores():
+    return {
+        email.strip().lower()
+        for email in os.environ.get("TCCHAT_ADMIN_EMAILS", "").split(",")
+        if email.strip()
+    }
+
+
+def papel_do_email(email):
+    return "admin" if email.strip().lower() in emails_administradores() else "aluno"
 
 
 def obter_conexao():
@@ -27,6 +42,7 @@ def inicializar_banco():
             nome TEXT NOT NULL,
             email TEXT NOT NULL UNIQUE,
             senha_hash TEXT NOT NULL,
+            papel TEXT NOT NULL DEFAULT 'aluno',
             criado_em TEXT NOT NULL
         );
 
@@ -64,6 +80,27 @@ def inicializar_banco():
         );
         """
     )
+    conn.commit()
+
+    colunas_usuario = {
+        linha["name"] for linha in conn.execute("PRAGMA table_info(usuarios)")
+    }
+    if "papel" not in colunas_usuario:
+        conn.execute(
+            "ALTER TABLE usuarios ADD COLUMN papel TEXT NOT NULL DEFAULT 'aluno'"
+        )
+        conn.commit()
+
+    # A lista de e-mails configurada no ambiente é a fonte de verdade para
+    # administradores: remover um e-mail da lista revoga o papel no próximo start.
+    conn.execute("UPDATE usuarios SET papel = 'aluno'")
+    administradores = emails_administradores()
+    if administradores:
+        placeholders = ",".join("?" for _ in administradores)
+        conn.execute(
+            f"UPDATE usuarios SET papel = 'admin' WHERE lower(email) IN ({placeholders})",
+            tuple(administradores),
+        )
     conn.commit()
 
     # Migração leve: bancos criados antes da coluna "atualizado_em" existir.

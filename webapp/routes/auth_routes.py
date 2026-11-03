@@ -1,7 +1,7 @@
 # webapp/routes/auth_routes.py
 from flask import Blueprint, request, jsonify, g
 
-from ..db import obter_conexao, agora
+from ..db import obter_conexao, agora, papel_do_email
 from ..auth import gerar_hash_senha, senha_valida, gerar_token, requer_autenticacao
 
 auth_bp = Blueprint("auth", __name__)
@@ -26,8 +26,8 @@ def cadastro():
             return jsonify({"erro": "Já existe uma conta com este e-mail."}), 409
 
         cursor = conn.execute(
-            "INSERT INTO usuarios (nome, email, senha_hash, criado_em) VALUES (?, ?, ?, ?)",
-            (nome, email, gerar_hash_senha(senha), agora()),
+            "INSERT INTO usuarios (nome, email, senha_hash, papel, criado_em) VALUES (?, ?, ?, ?, ?)",
+            (nome, email, gerar_hash_senha(senha), papel_do_email(email), agora()),
         )
         usuario_id = cursor.lastrowid
 
@@ -86,4 +86,6 @@ def logout():
 @auth_bp.get("/me")
 @requer_autenticacao
 def me():
-    return jsonify({"nome": g.usuario_nome, "email": g.usuario_email})
+    return jsonify(
+        {"nome": g.usuario_nome, "email": g.usuario_email, "papel": g.usuario_papel}
+    )

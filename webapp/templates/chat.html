@@ -22,7 +22,7 @@
         <button type="button" class="item-menu" id="menu-nova">
           <svg class="ico"><use href="/static/icons.svg#nova"/></svg><span>Nova conversa</span>
         </button>
-        <button type="button" class="item-menu" id="menu-base">
+        <button type="button" class="item-menu" id="menu-base" hidden>
           <svg class="ico"><use href="/static/icons.svg#arquivo"/></svg><span>Base de conhecimento</span>
         </button>
         <button type="button" class="item-menu" id="menu-estrutura">
@@ -91,7 +91,7 @@
             <label class="sr-only" for="campo">Sua mensagem</label>
             <textarea id="campo" rows="2"></textarea>
             <div class="caixa-rodape">
-              <button type="button" class="base-info" id="btn-base" aria-label="Abrir a base de conhecimento">
+              <button type="button" class="base-info" id="btn-base" aria-label="Abrir a base de conhecimento" hidden>
                 <svg class="ico"><use href="/static/icons.svg#clipe"/></svg>
                 <span id="contagem-docs">0 documentos na base</span>
               </button>

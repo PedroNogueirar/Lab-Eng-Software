@@ -26,13 +26,16 @@ class PDFVectorStore:
 
     def __init__(
         self,
-        docs_path="docs_uploader/documents_txt",
-        persist_dir="db",
+        docs_path=None,
+        persist_dir=None,
         embedding_model="text-embedding-3-small"
     ):
 
-        self.docs_path = docs_path
-        self.persist_dir = persist_dir
+        rag_dir = os.path.dirname(os.path.abspath(__file__))
+        self.docs_path = docs_path or os.path.join(
+            rag_dir, "docs_uploader", "documents_txt"
+        )
+        self.persist_dir = persist_dir or os.path.join(rag_dir, "db")
 
         log.info("🚀 Carregando embeddings (API da OpenAI)...")
         self.embeddings = OpenAIEmbeddings(model=embedding_model)
@@ -69,12 +72,23 @@ class PDFVectorStore:
     def _build_db(self):
 
         docs = self._load_files()
+        if not docs:
+            log.warning(
+                "Nenhum .txt inicial em '%s'; criando um índice vazio para "
+                "permitir a ingestão de documentos pela aplicação.",
+                self.docs_path,
+            )
+            self.db = self._load_db()
+            return self.db
+
         docs = self._split_by_sections(docs)
 
         chunks = self._chunk(docs)
 
         chunks = self._hash_dedup(chunks)
         chunks = self._semantic_dedup(chunks)
+        if not chunks:
+            raise RuntimeError("Não foi possível gerar trechos para o índice RAG.")
 
         log.info("🧠 Gerando embeddings + salvando Chroma...")
 
@@ -103,9 +117,14 @@ class PDFVectorStore:
 
         docs = []
 
+        if not os.path.isdir(self.docs_path):
+            raise FileNotFoundError(
+                f"Pasta de documentos do RAG não encontrada: '{self.docs_path}'."
+            )
+
         for file in os.listdir(self.docs_path):
 
-            if not file.endswith(".txt"):
+            if not file.lower().endswith(".txt"):
                 continue
 
             path = os.path.join(self.docs_path, file)
@@ -237,6 +256,9 @@ class PDFVectorStore:
     # ==================================================
 
     def _semantic_dedup(self, docs, threshold=0.95):
+
+        if not docs:
+            return []
 
         texts = [d.page_content for d in docs]
         embs = np.array(self.embeddings.embed_documents(texts))

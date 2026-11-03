@@ -61,10 +61,19 @@ class Memory_support:
             print(f"❌ Falha ao inicializar o ChromaDB: {e}")
             raise
 
-    def append_on_memory_database(self, user: str, assistance_response: str):
+    @staticmethod
+    def _user_filter(user_id):
+        return {"user_id": str(user_id) if user_id is not None else "legacy"}
+
+    def append_on_memory_database(
+        self, user: str, assistance_response: str, user_id=None
+    ):
         doc_text = f"USER: {user}\nLLM: {assistance_response}"
         _id = str(uuid.uuid4())
-        metadata = {"timestamp": time.time()}
+        metadata = {
+            "timestamp": time.time(),
+            "user_id": str(user_id) if user_id is not None else "legacy",
+        }
 
         print(f"\n💾 Adicionando memória: {doc_text[:60]}...")
 
@@ -116,26 +125,26 @@ class Memory_support:
             print(f"⚠️ Não foi possível listar o diretório: {e}")
 
         # Limpar + purificar
-        self._auto_clean_and_purify()
+        self._auto_clean_and_purify(user_id)
 
-    def _auto_clean_and_purify(self):
+    def _auto_clean_and_purify(self, user_id=None):
         print("🧼 Limpando e purificando memórias...")
+        user_filter = self._user_filter(user_id)
     
         try:
-            count = self.collection.count()
-            if count == 0:
-                print("📊 Nenhuma memória para limpar.")
-                return
-    
             res = self.collection.get(
+                where=user_filter,
                 include=["documents", "metadatas", "embeddings"]
             )
+            ids = res.get("ids", [])
+            if not ids:
+                print("📊 Nenhuma memória para limpar.")
+                return
             
         except Exception as e:
             print(f"⚠️ Erro ao buscar todas as memórias: {e}")
             return
     
-        ids = res.get("ids", [])
         docs = res.get("documents", [])
         metadatas = res.get("metadatas", [])
         embeddings = res.get("embeddings", [])
@@ -207,12 +216,13 @@ class Memory_support:
     # -------------------------------------------------
     # 🔍 Recuperar memórias relevantes para prompt
     # -------------------------------------------------
-    def mount_prompt_memory(self, user: str, k: int = 3) -> str:
+    def mount_prompt_memory(self, user: str, k: int = 3, user_id=None) -> str:
         """Busca as K memórias mais relevantes para a consulta do usuário."""
         if not user:
             return ""
 
         print(f"\n🔍 Recuperando memórias relevantes para: '{user[:50]}...'")
+        user_filter = self._user_filter(user_id)
 
         embedding = None
         if self.embedding_model:
@@ -227,13 +237,15 @@ class Memory_support:
                 res = self.collection.query(
                     query_embeddings=[embedding],
                     n_results=k,
-                    include=["documents", "distances"]
+                    include=["documents", "distances"],
+                    where=user_filter,
                 )
             else:
                 res = self.collection.query(
                     query_texts=[user],
                     n_results=k,
-                    include=["documents", "distances"]
+                    include=["documents", "distances"],
+                    where=user_filter,
                 )
         except Exception as e:
             print(f"❌ Falha ao realizar query no ChromaDB: {e}")

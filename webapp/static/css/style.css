@@ -299,6 +299,15 @@ button { cursor: pointer; }
 .secoes-abnt .desc { display: block; color: var(--suave); font-size: .93rem; }
 .fonte { margin: 0; color: var(--suave); font-size: .88rem; }
 
+.fontes {
+  margin-top: .9rem; padding-top: .75rem;
+  border-top: 1px solid var(--borda); color: var(--suave); font-size: .88rem;
+}
+.fontes > strong { color: var(--texto); font-weight: 600; }
+.fontes ul { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .45rem; }
+.fonte-nome { display: block; color: var(--texto); font-weight: 500; }
+.fonte-trecho { display: block; margin-top: .1rem; }
+
 /* revisão: trecho marcado + notas */
 .pagina-revisada {
   padding: 1.1rem 1.3rem; background: var(--cartao);

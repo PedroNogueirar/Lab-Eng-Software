@@ -17,6 +17,8 @@ na memória) já fica pronta e não deve precisar mudar.
 """
 import json
 
+from llama.prompts import INSTRUCOES_BASE
+
 MODOS_VALIDOS = {"tema", "revisao", "estrutura", "progresso"}
 SECOES_VALIDAS = {"introducao", "metodologia", "resultados"}
 
@@ -28,38 +30,74 @@ class GeradorRespostas:
     # ------------------------------------------------------------------
     # API pública
     # ------------------------------------------------------------------
-    def responder(self, mensagem, modo="tema", secao=None):
+    def responder(self, mensagem, modo="tema", secao=None, user_id=None):
         modo = (modo or "tema").strip().lower()
 
         if modo == "revisao":
-            return self._responder_revisao(mensagem, secao)
+            return self._responder_revisao(mensagem, secao, user_id)
         if modo == "estrutura":
-            return self._responder_estrutura(mensagem)
+            return self._responder_estrutura(mensagem, user_id)
         if modo == "progresso":
-            return self._responder_progresso(mensagem)
+            return self._responder_progresso(mensagem, user_id)
         if modo == "tema":
-            return self._responder_tema(mensagem)
+            return self._responder_tema(mensagem, user_id)
 
         # modo desconhecido -> cai para texto livre, nunca quebra o front
-        return {"tipo": "texto", "texto": self.cl.invoke(mensagem)}
+        return self._responder_texto(mensagem, user_id)
 
     # ------------------------------------------------------------------
     # Helpers compartilhados
     # ------------------------------------------------------------------
-    def _contexto(self, mensagem, k_rag=20):
-        memory_block = self.cl.memory_support.mount_prompt_memory(mensagem, k=3)
+    def _contexto(self, mensagem, k_rag=20, user_id=None):
+        memory_block = self.cl.memory_support.mount_prompt_memory(
+            mensagem, k=3, user_id=user_id
+        )
         rag_docs = self.cl._extract_info_chunks(mensagem, k=k_rag)
         if rag_docs:
-            rag_block = "\n\n".join(f"[FONTE {d.id}] {d.page_content}" for d in rag_docs)
+            rag_block = "\n\n".join(
+                f"[FONTE: {d.metadata.get('source') or 'Documento da base'} | "
+                f"TRECHO: {d.metadata.get('chunk_id') or d.id}]\n{d.page_content}"
+                for d in rag_docs
+            )
         else:
             rag_block = ""
-        return memory_block, rag_block
+        return memory_block, rag_block, self._fontes(rag_docs)
+
+    @staticmethod
+    def _fontes(documentos):
+        fontes = []
+        por_nome = {}
+        for documento in documentos:
+            nome = documento.metadata.get("source") or "Documento da base"
+            fonte = por_nome.get(nome)
+            if fonte is None:
+                if len(fontes) == 6:
+                    continue
+                fonte = {"nome": nome, "trechos": []}
+                por_nome[nome] = fonte
+                fontes.append(fonte)
+
+            if len(fonte["trechos"]) < 2:
+                trecho = " ".join(documento.page_content.split())
+                if len(trecho) > 280:
+                    trecho = trecho[:277].rstrip() + "..."
+                if trecho and trecho not in fonte["trechos"]:
+                    fonte["trechos"].append(trecho)
+        return fontes
+
+    @staticmethod
+    def _anexar_fontes(dados, fontes):
+        dados["fontes"] = fontes
+        return dados
 
     def _chat_json(self, system_prompt, user_content, max_tokens=900):
         completion = self.cl.client.chat.completions.create(
             model=self.cl.model_id,
             messages=[
-                {"role": "system", "content": system_prompt},
+                {
+                    "role": "system",
+                    "content": f"{INSTRUCOES_BASE}\n\n{system_prompt}",
+                },
                 {"role": "user", "content": user_content},
             ],
             temperature=0.3,
@@ -79,10 +117,12 @@ class GeradorRespostas:
             # o modelo não devolveu JSON válido -> fallback seguro
             return {"tipo": "texto", "texto": conteudo}
 
-    def _salvar_memoria(self, mensagem, dados):
+    def _salvar_memoria(self, mensagem, dados, user_id=None):
         try:
             self.cl.memory_support.append_on_memory_database(
-                mensagem, json.dumps(dados, ensure_ascii=False)
+                mensagem,
+                json.dumps(dados, ensure_ascii=False),
+                user_id=user_id,
             )
         except Exception as e:
             print(f"⚠️ Erro ao salvar memória: {e}")
@@ -90,8 +130,10 @@ class GeradorRespostas:
     # ------------------------------------------------------------------
     # Modo: tema  -> tipo "resumo"
     # ------------------------------------------------------------------
-    def _responder_tema(self, mensagem):
-        memory_block, rag_block = self._contexto(mensagem)
+    def _responder_tema(self, mensagem, user_id=None):
+        memory_block, rag_block, fontes = self._contexto(
+            mensagem, user_id=user_id
+        )
 
         system_prompt = f"""Você é um especialista em orientação de TCC.
 
@@ -160,18 +202,21 @@ vez de inventar.
         dados = self._chat_json(system_prompt, mensagem)
         if dados.get("tipo") not in ("resumo", "texto"):
             dados["tipo"] = "texto"  # resposta do modelo veio fora do formato esperado; cai pro mais seguro
-        self._salvar_memoria(mensagem, dados)
+        self._anexar_fontes(dados, fontes)
+        self._salvar_memoria(mensagem, dados, user_id)
         return dados
 
     # ------------------------------------------------------------------
     # Modo: revisao (+ secao) -> tipo "revisao"
     # ------------------------------------------------------------------
-    def _responder_revisao(self, mensagem, secao):
+    def _responder_revisao(self, mensagem, secao, user_id=None):
         secao = (secao or "introducao").strip().lower()
         if secao not in SECOES_VALIDAS:
             secao = "introducao"
 
-        memory_block, rag_block = self._contexto(mensagem)
+        memory_block, rag_block, fontes = self._contexto(
+            mensagem, user_id=user_id
+        )
 
         system_prompt = f"""Você é um revisor especialista em TCC, avaliando a
 seção "{secao}" do trabalho. O usuário vai colar um trecho do texto dele.
@@ -210,14 +255,17 @@ boas práticas, sem inventar regras que não estejam lá.
         dados.setdefault("tipo", "revisao")
         dados.setdefault("trecho_original", mensagem)
         dados.setdefault("notas", [])
-        self._salvar_memoria(mensagem, dados)
+        self._anexar_fontes(dados, fontes)
+        self._salvar_memoria(mensagem, dados, user_id)
         return dados
 
     # ------------------------------------------------------------------
     # Modo: estrutura -> tipo "estrutura"
     # ------------------------------------------------------------------
-    def _responder_estrutura(self, mensagem):
-        memory_block, rag_block = self._contexto(mensagem)
+    def _responder_estrutura(self, mensagem, user_id=None):
+        memory_block, rag_block, fontes = self._contexto(
+            mensagem, user_id=user_id
+        )
 
         system_prompt = f"""Você é um especialista em estrutura de TCC/monografia.
 A partir da mensagem do usuário (tema/contexto do trabalho), proponha uma
@@ -233,9 +281,10 @@ Responda SOMENTE em JSON, no formato exato:
   "fonte": "<opcional: referência/norma usada como base, ou omita o campo>"
 }}
 
-Baseie a estrutura proposta no contexto de RAG quando houver normas/modelos
-disponíveis; caso contrário, use uma estrutura acadêmica padrão (introdução,
-referencial teórico, metodologia, resultados, conclusão).
+Monte a estrutura somente com as seções e orientações sustentadas pelos
+documentos recuperados. Não invente uma estrutura acadêmica padrão se ela não
+estiver documentada. Se os documentos não forem suficientes para orientar,
+retorne "tipo": "texto", explique a limitação e use "secoes": [].
 
 <CONTEXT_MEMORY>
 {memory_block if memory_block.strip() else "[Nenhuma memória relevante encontrada]"}
@@ -248,14 +297,17 @@ referencial teórico, metodologia, resultados, conclusão).
         dados = self._chat_json(system_prompt, mensagem)
         dados.setdefault("tipo", "estrutura")
         dados.setdefault("secoes", [])
-        self._salvar_memoria(mensagem, dados)
+        self._anexar_fontes(dados, fontes)
+        self._salvar_memoria(mensagem, dados, user_id)
         return dados
 
     # ------------------------------------------------------------------
     # Modo: progresso -> tipo "progresso"
     # ------------------------------------------------------------------
-    def _responder_progresso(self, mensagem):
-        memory_block, rag_block = self._contexto(mensagem)
+    def _responder_progresso(self, mensagem, user_id=None):
+        memory_block, rag_block, fontes = self._contexto(
+            mensagem, user_id=user_id
+        )
 
         system_prompt = f"""Você acompanha o progresso de um TCC a partir do
 histórico de conversa do usuário (fornecido como contexto de memória) e da
@@ -289,4 +341,31 @@ como "nao_iniciado" e sugira começar pela definição do tema.
         dados.setdefault("tipo", "progresso")
         dados.setdefault("etapas", [])
         dados.setdefault("secoes", [])
+        return self._anexar_fontes(dados, fontes)
+
+    def _responder_texto(self, mensagem, user_id=None):
+        memory_block, rag_block, fontes = self._contexto(
+            mensagem, user_id=user_id
+        )
+        system_prompt = f"""Responda à pergunta do usuário com clareza e de
+forma objetiva. Use o contexto documental como base factual e a memória
+somente para personalizar a orientação. Se os documentos não trouxerem a
+resposta, diga isso explicitamente em vez de inventar informações.
+
+Responda somente em JSON no formato:
+{{"tipo": "texto", "texto": "<resposta>"}}
+
+<CONTEXT_MEMORY>
+{memory_block if memory_block.strip() else "[Nenhuma memória relevante encontrada]"}
+</CONTEXT_MEMORY>
+
+<CONTEXT_RAG>
+{rag_block if rag_block.strip() else "[Nenhum documento relevante foi encontrado.]"}
+</CONTEXT_RAG>
+"""
+        dados = self._chat_json(system_prompt, mensagem)
+        dados["tipo"] = "texto"
+        dados.setdefault("texto", "")
+        self._anexar_fontes(dados, fontes)
+        self._salvar_memoria(mensagem, dados, user_id)
         return dados

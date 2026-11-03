@@ -253,7 +253,6 @@
         )
       );
       const saida = [lista];
-      if (r.fonte) saida.push(el("p", { class: "fonte" }, "Fonte: " + r.fonte));
       if (!leitura) {
         const entendi = botaoClaro("Entendi a estrutura", () => {
           if (ocupado) return;
@@ -336,6 +335,29 @@
     if (r.texto) caixa.append(el("p", { class: "fala" }, r.texto));
     const desenho = RENDER[r.tipo];
     if (desenho) caixa.append(...desenho(r, leitura));
+    if (Array.isArray(r.fontes) && r.fontes.length) {
+      caixa.append(
+        el(
+          "section",
+          { class: "fontes", "aria-label": "Fontes consultadas" },
+          el("strong", {}, "Fontes consultadas"),
+          el(
+            "ul",
+            {},
+            r.fontes.map((fonte) =>
+              el(
+                "li",
+                {},
+                el("span", { class: "fonte-nome" }, fonte.nome),
+                ...(fonte.trechos || []).map((trecho) =>
+                  el("span", { class: "fonte-trecho" }, "“" + trecho + "”")
+                )
+              )
+            )
+          )
+        )
+      );
+    }
     if (r.acao && !leitura) {
       caixa.append(el("div", { class: "acoes" }, botaoClaro(r.acao.rotulo, () => executarAcao(r.acao))));
     }
@@ -526,7 +548,10 @@
   async function carregarDocs() {
     try {
       docs = (await API.get("/documentos")).documentos;
-    } catch { docs = []; }
+    } catch (e) {
+      docs = [];
+      $("erro-base").textContent = e.message;
+    }
     renderDocs();
   }
 
@@ -596,11 +621,21 @@
     $("saudacao").textContent = primeiroNome ? `Olá, ${primeiroNome}.` : "Olá.";
     $("nome-usuario").textContent = nome;
     $("avatar").textContent = (nome[0] || "?").toUpperCase();
-    API.get("/me").then((u) => { $("email-usuario").textContent = u.email; }).catch(() => {});
+    try {
+      const usuario = await API.get("/me");
+      $("email-usuario").textContent = usuario.email;
+      if (usuario.papel === "admin") {
+        $("menu-base").hidden = false;
+        $("btn-base").hidden = false;
+        await carregarDocs();
+      }
+    } catch (e) {
+      msgErro(e.message);
+      return;
+    }
 
     definirModo("tema");
     atualizarBotaoEnviar();
-    carregarDocs();
 
     await carregarConversas();
     if (conversas.length) {
