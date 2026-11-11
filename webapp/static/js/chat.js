@@ -35,20 +35,13 @@
     nao_iniciado: "não iniciado",
   };
 
-  const PLACEHOLDER = {
-    tema: "Conte sua ideia de tema, mesmo vaga",
-    revisao: "Cole aqui o trecho que você escreveu",
-  };
-
   const SUGESTOES = [
-    { texto: "Quero definir o tema do meu TCC", modo: "tema", enviar: true },
-    { texto: "Mostre a estrutura esperada do trabalho", modo: "estrutura", enviar: true },
-    { texto: "Quero revisar um trecho que escrevi", modo: "revisao", enviar: false },
-    { texto: "Como está meu progresso?", modo: "progresso", enviar: true },
+    "Quero ajuda para definir o tema do meu TCC.",
+    "Como estruturo meu trabalho?",
+    "Quero revisar um trecho do meu TCC.",
+    "Como está meu progresso?",
   ];
 
-  let modo = "tema";
-  let secao = "introducao";
   let ocupado = false;
   let temMensagens = false;
   let primeiraPergunta = "";
@@ -117,7 +110,6 @@
     $("mensagens").replaceChildren();
     primeiraPergunta = "";
     mostrarConversa(false);
-    definirModo("tema");
     renderRecentes();
     try {
       const { mensagens } = await API.get("/historico?conversa_id=" + id);
@@ -223,12 +215,12 @@
         const confirmar = botaoCheio("Confirmar", () => {
           if (ocupado) return;
           confirmar.disabled = ajustar.disabled = true;
-          enviar("Confirmo o resumo", { modo: "tema" });
+          enviar("Confirmo o resumo");
         });
         const ajustar = botaoClaro("Ajustar", () => {
           if (ocupado) return;
           confirmar.disabled = ajustar.disabled = true;
-          enviar("Quero ajustar algo no resumo", { modo: "tema" });
+          enviar("Quero ajustar algo no resumo");
         });
         saida.push(el("div", { class: "acoes" }, confirmar, ajustar));
       }
@@ -257,7 +249,7 @@
         const entendi = botaoClaro("Entendi a estrutura", () => {
           if (ocupado) return;
           entendi.disabled = true;
-          enviar("Entendi a estrutura", { modo: "estrutura" });
+          enviar("Entendi a estrutura");
         });
         saida.push(el("div", { class: "acoes" }, entendi));
       }
@@ -365,53 +357,26 @@
     rolarParaFim();
   }
 
-  /* ---------- Modos e ações ---------- */
-
-  function definirModo(novo, novaSecao) {
-    modo = novo;
-    if (novaSecao) {
-      secao = novaSecao;
-      $("seletor-secao").value = novaSecao;
-    }
-    $("seletor-modo").value = modo;
-    $("seletor-secao").hidden = modo !== "revisao";
-    $("campo").placeholder = PLACEHOLDER[modo] || "";
-    ajustarAltura();
-    $("campo").focus();
-  }
-
+  /* ---------- Sugestões ---------- */
   function executarAcao(acao) {
     if (ocupado) return;
     abrirLateral(false);
-    if (acao.modo === "estrutura") {
-      enviar("Quero ver a estrutura do trabalho", { modo: "estrutura" });
-    } else if (acao.modo === "progresso") {
-      enviar("Como está meu progresso?", { modo: "progresso" });
-    } else if (acao.enviar) {
-      definirModo(acao.modo, acao.secao);
-      enviar(acao.texto, { modo: acao.modo });
-    } else {
-      definirModo(acao.modo, acao.secao);
-    }
+    const texto = typeof acao === "string" ? acao : acao.texto || acao.mensagem;
+    if (texto) enviar(texto);
   }
 
-  $("seletor-modo").addEventListener("change", (ev) => definirModo(ev.target.value));
-  $("seletor-secao").addEventListener("change", (ev) => { secao = ev.target.value; });
-
   $("sugestoes").replaceChildren(
-    ...SUGESTOES.map((s) => {
-      const b = el("button", { type: "button", class: "sugestao-card" }, s.texto);
-      b.addEventListener("click", () => executarAcao(s));
+    ...SUGESTOES.map((texto) => {
+      const b = el("button", { type: "button", class: "sugestao-card" }, texto);
+      b.addEventListener("click", () => executarAcao(texto));
       return b;
     })
   );
 
   /* ---------- Envio ---------- */
 
-  async function enviar(texto, opcoes = {}) {
+  async function enviar(texto) {
     if (ocupado) return;
-    const m = opcoes.modo || modo;
-    const s = opcoes.secao || secao;
     ocupado = true;
     $("btn-enviar").disabled = true;
 
@@ -422,7 +387,7 @@
     rolarParaFim();
 
     try {
-      const r = await API.post("/chat", { mensagem: texto, modo: m, secao: s, conversa_id: conversaIdAtual });
+      const r = await API.post("/chat", { mensagem: texto, conversa_id: conversaIdAtual });
       espera.remove();
       msgBot(r);
       if (r.conversa_id) conversaIdAtual = r.conversa_id;
@@ -485,15 +450,14 @@
     $("mensagens").replaceChildren();
     primeiraPergunta = "";
     mostrarConversa(false);
-    definirModo("tema");
     $("rolagem").scrollTop = 0;
     await carregarConversas();
   }
 
   $("menu-nova").addEventListener("click", novaConversa);
   $("btn-nova-topo").addEventListener("click", novaConversa);
-  $("menu-estrutura").addEventListener("click", () => executarAcao({ modo: "estrutura" }));
-  $("menu-progresso").addEventListener("click", () => executarAcao({ modo: "progresso" }));
+  $("menu-estrutura").addEventListener("click", () => executarAcao("Quero ver a estrutura do meu trabalho."));
+  $("menu-progresso").addEventListener("click", () => executarAcao("Como está meu progresso?"));
 
   /* ---------- Barra lateral no celular ---------- */
 
@@ -634,7 +598,6 @@
       return;
     }
 
-    definirModo("tema");
     atualizarBotaoEnviar();
 
     await carregarConversas();

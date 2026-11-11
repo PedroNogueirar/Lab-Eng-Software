@@ -124,8 +124,6 @@ def excluir_conversa(conversa_id):
 def chat():
     dados = request.get_json(silent=True) or {}
     mensagem = (dados.get("mensagem") or "").strip()
-    modo = dados.get("modo") or "tema"
-    secao = dados.get("secao")
     conversa_id_pedida = dados.get("conversa_id")
 
     if not mensagem:
@@ -140,6 +138,19 @@ def chat():
         else:
             conversa_id = _conversa_atual(conn, g.usuario_id)
 
+        historico = conn.execute(
+            """
+            SELECT papel, conteudo FROM mensagens
+            WHERE conversa_id = ?
+            ORDER BY id DESC
+            LIMIT 8
+            """,
+            (conversa_id,),
+        ).fetchall()
+        historico = [
+            {"papel": linha["papel"], "conteudo": linha["conteudo"]}
+            for linha in reversed(historico)
+        ]
         _definir_titulo_se_vazio(conn, conversa_id, mensagem)
         conn.execute(
             "INSERT INTO mensagens (conversa_id, papel, conteudo, criado_em) VALUES (?, 'usuario', ?, ?)",
@@ -152,9 +163,8 @@ def chat():
         try:
             resposta = gerador.responder(
                 mensagem,
-                modo=modo,
-                secao=secao,
                 user_id=g.usuario_id,
+                historico=historico,
             )
         except Exception as e:
             # Imprime o traceback completo no terminal (facilita achar a causa raiz);

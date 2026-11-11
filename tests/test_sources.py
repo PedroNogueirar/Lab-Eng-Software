@@ -29,7 +29,6 @@ class TestResponseSources(unittest.TestCase):
         with patch.object(self.generator, "_chat_json", return_value=generated):
             result = self.generator.responder(
                 "Qual é a orientação?",
-                modo="tema",
                 user_id=17,
             )
 
@@ -68,3 +67,43 @@ class TestResponseSources(unittest.TestCase):
             result = self.generator.responder("Pergunta", user_id=17)
 
         self.assertEqual(result["fontes"], [])
+
+    def test_chat_classifies_intent_and_includes_conversation_context(self):
+        resposta = {
+            "tipo": "revisao",
+            "texto": "Há pontos a esclarecer.",
+            "trecho_original": "texto alterado",
+            "notas": [],
+        }
+        historico = [
+            {"papel": "usuario", "conteudo": "Meu tema é sustentabilidade."},
+            {
+                "papel": "assistente",
+                "conteudo": '{"tipo":"texto","texto":"Qual recorte você escolheu?"}',
+            },
+        ]
+        with patch.object(self.generator, "_chat_json", return_value=resposta) as chat:
+            result = self.generator.responder(
+                "Analise este trecho sobre metodologia.",
+                historico=historico,
+                user_id=17,
+            )
+
+        prompt = chat.call_args.args[0]
+        mensagem = chat.call_args.args[1]
+        self.assertIn("identifique por conta própria a intenção", prompt)
+        self.assertIn("nunca reescreva, corrija ou substitua", prompt)
+        self.assertIn("Pedido de revisão sem um trecho de texto enviado", prompt)
+        self.assertIn("Meu tema é sustentabilidade.", mensagem)
+        self.assertIn("Qual recorte você escolheu?", mensagem)
+        self.assertIn("Analise este trecho sobre metodologia.", mensagem)
+        self.assertEqual(
+            result["trecho_original"],
+            "Analise este trecho sobre metodologia.",
+        )
+        self.assertEqual(result["tipo"], "revisao")
+        self.assertIn(
+            "Meu tema é sustentabilidade.\n"
+            "Analise este trecho sobre metodologia.",
+            self.call_llama._extract_info_chunks.call_args.args[0],
+        )

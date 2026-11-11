@@ -119,12 +119,48 @@ class TestAdminDocumentAccess(unittest.TestCase):
             response = self.client.post(
                 "/api/chat",
                 headers=self._headers(self.student_token),
-                json={"mensagem": "Pergunta de teste", "modo": "tema"},
+                json={"mensagem": "Pergunta de teste"},
             )
 
         self.assertEqual(response.status_code, 200, response.get_json())
         self.assertEqual(response.get_json()["fontes"], [])
         self.assertEqual(responder.call_args.kwargs["user_id"], 2)
+        self.assertEqual(responder.call_args.kwargs["historico"], [])
+        self.assertNotIn("modo", responder.call_args.kwargs)
+
+    def test_chat_passes_recent_messages_from_the_same_conversation(self):
+        response_data = {"tipo": "texto", "texto": "Resposta", "fontes": []}
+        responder = Mock(return_value=response_data)
+        with patch(
+            "webapp.routes.chat_routes.obter_gerador",
+            return_value=SimpleNamespace(responder=responder),
+        ):
+            first = self.client.post(
+                "/api/chat",
+                headers=self._headers(self.student_token),
+                json={"mensagem": "Meu tema é sustentabilidade."},
+            )
+            conversation_id = first.get_json()["conversa_id"]
+            second = self.client.post(
+                "/api/chat",
+                headers=self._headers(self.student_token),
+                json={
+                    "mensagem": "E como fica a metodologia?",
+                    "conversa_id": conversation_id,
+                },
+            )
+
+        self.assertEqual(second.status_code, 200, second.get_json())
+        historico = responder.call_args.kwargs["historico"]
+        self.assertEqual(
+            [item["papel"] for item in historico],
+            ["usuario", "assistente"],
+        )
+        self.assertEqual(historico[0]["conteudo"], "Meu tema é sustentabilidade.")
+        self.assertEqual(
+            historico[1]["conteudo"],
+            '{"tipo": "texto", "texto": "Resposta", "fontes": []}',
+        )
 
     def test_admin_can_list_upload_and_remove_documents(self):
         headers = self._headers(self.admin_token)

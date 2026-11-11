@@ -379,8 +379,6 @@ button { cursor: pointer; }
 }
 .caixa textarea::placeholder { color: #8C857B; }
 
-.caixa-topo { display: flex; gap: .5rem; margin-bottom: .55rem; }
-.caixa-topo:has(select[hidden]:only-child) { display: flex; }
 .caixa-rodape { display: flex; align-items: center; gap: .6rem; margin-top: .3rem; }
 
 .base-info {
@@ -388,16 +386,6 @@ button { cursor: pointer; }
   border: 0; background: transparent; color: var(--suave); font-size: .95rem;
 }
 .base-info:hover { color: var(--texto); }
-
-.pilula {
-  max-width: 10rem; padding: .3rem 1.6rem .3rem .75rem;
-  border: 1px solid var(--borda); border-radius: 999px; background-color: var(--campo);
-  font-size: .85rem; color: var(--texto); cursor: pointer;
-  appearance: none; -webkit-appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, #6F685F 50%), linear-gradient(135deg, #6F685F 50%, transparent 50%);
-  background-position: calc(100% - 13px) 55%, calc(100% - 9px) 55%;
-  background-size: 4px 4px; background-repeat: no-repeat;
-}
 
 .btn-enviar {
   margin-left: auto; width: 2.5rem; height: 2.5rem; border: 0; border-radius: .85rem;
